@@ -1,0 +1,115 @@
+'use client';
+
+import { useState, useRef, useEffect } from "react"
+import EditorPanel from "./EditorPanel"
+import OutputPanel from "./OutputPanel"
+import { useFileSystem } from "@/hooks/useFileSystem"
+import { useStreamExecution } from "@/hooks/useStreamExecution"
+import type { Language } from "@/hooks/useLanguages"
+
+interface PlaygroundProps {
+    selectedLanguage?: Language | null
+}
+
+export default function Playground({ selectedLanguage }: PlaygroundProps) {
+    const [dividerX, setDividerX] = useState(50)
+    const [code, setCode] = useState("")
+    const [entryFile, setEntryFile] = useState<string | null>(null)
+
+    const { updateFile } = useFileSystem()
+    const { outputs, isRunning, execute } = useStreamExecution()
+
+    const containerRef = useRef<HTMLDivElement>(null)
+    const isDraggingRef = useRef(false)
+
+    // Initialize with code preview when language changes
+    useEffect(() => {
+        if (selectedLanguage?.code_preview) {
+            setCode(selectedLanguage.code_preview)
+            // Backend will determine entry file name
+            setEntryFile(null)
+        }
+    }, [selectedLanguage?.id])
+
+    const handleMouseDown = () => {
+        isDraggingRef.current = true
+    }
+
+    const handleRun = async () => {
+        if (!selectedLanguage) return
+
+        // Step 1: Sync current editor content to backend
+        console.log("[v0] Syncing file before execution...")
+        const syncSuccess = await updateFile(entryFile || selectedLanguage.file_name || "main", code)
+
+        if (!syncSuccess) {
+            console.error("[v0] File sync failed, aborting execution")
+            return
+        }
+
+        // Step 2: Execute with streaming
+        console.log("[v0] Starting execution...")
+        await execute(selectedLanguage.language_name, "")
+    }
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDraggingRef.current || !containerRef.current) return
+
+            const rect = containerRef.current.getBoundingClientRect()
+            const newX = ((e.clientX - rect.left) / rect.width) * 100
+
+            if (newX >= 30 && newX <= 70) {
+                setDividerX(newX)
+            }
+        }
+
+        const handleMouseUp = () => {
+            isDraggingRef.current = false
+        }
+
+        if (isDraggingRef.current) {
+            document.addEventListener("mousemove", handleMouseMove)
+            document.addEventListener("mouseup", handleMouseUp)
+
+            return () => {
+                document.removeEventListener("mousemove", handleMouseMove)
+                document.removeEventListener("mouseup", handleMouseUp)
+            }
+        }
+    }, [])
+
+    return (
+        <div
+            ref={containerRef}
+            className="flex h-full overflow-hidden bg-background"
+        >
+            {/* Left Panel: Editor */}
+            <div
+                style={{ width: `${dividerX}%` }}
+                className="flex flex-col border-r border-border"
+            >
+                <EditorPanel 
+                    code={code} 
+                    onCodeChange={setCode} 
+                    onRun={handleRun} 
+                    isRunning={isRunning} 
+                />
+            </div>
+
+            {/* Divider */}
+            <div
+                onMouseDown={handleMouseDown}
+                className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0"
+            />
+
+            {/* Right Panel: Output */}
+            <div
+                style={{ width: `${100 - dividerX}%` }}
+                className="flex flex-col bg-background"
+            >
+                <OutputPanel outputs={outputs} />
+            </div>
+        </div>
+    )
+}
