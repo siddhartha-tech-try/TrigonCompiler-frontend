@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import Header from "@/components/Header"
 import Playground from "@/components/Playground"
 import { useLanguages, type Language } from "@/hooks/useLanguages"
+import { SessionProvider } from "@/contexts/SessionContext"
 
-function App() {
+function AppContent() {
   const { languages, loading, error } = useLanguages()
   const [selectedLanguageId, setSelectedLanguageId] = useState<number | null>(null)
   const selectedLanguage = languages.find((lang) => lang.id === selectedLanguageId)
@@ -32,6 +33,14 @@ function App() {
       )}
       <Playground selectedLanguage={selectedLanguage} />
     </div>
+  )
+}
+
+function App() {
+  return (
+    <SessionProvider>
+      <AppContent />
+    </SessionProvider>
   )
 }
 

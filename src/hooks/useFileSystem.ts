@@ -22,7 +22,9 @@ export function useFileSystem() {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${getBaseUrl()}/files/tree`);
+            const response = await fetch(`${getBaseUrl()}/files/tree`, {
+                credentials: 'include',
+            });
             if (!response.ok) {
                 throw new Error(`Failed to fetch file tree: ${response.statusText}`);
             }
@@ -41,9 +43,9 @@ export function useFileSystem() {
 
     const readFile = useCallback(async (path: string): Promise<string | null> => {
         try {
-            console.log(getBaseUrl());
-            
-            const response = await fetch(`${getBaseUrl()}/files/read?path=${encodeURIComponent(path)}`);
+            const response = await fetch(`${getBaseUrl()}/files/read?path=${encodeURIComponent(path)}`, {
+                credentials: 'include',
+            });
             if (!response.ok) {
                 throw new Error(`Failed to read file: ${response.statusText}`);
             }
@@ -89,32 +91,36 @@ export function useFileSystem() {
             if (!response.ok) {
                 throw new Error(`Failed to create: ${response.statusText}`);
             }
+            // Refresh file tree after creation
+            await getFileTree();
             return true;
         } catch (err) {
             console.error('[v0] Error creating file:', err);
             return false;
         }
-    }, []);
+    }, [getFileTree]);
 
-    const deleteFile = useCallback(async (path: string): Promise<boolean> => {
+    const deleteFile = useCallback(async (path: string, language?: string): Promise<boolean> => {
         try {
             const response = await fetch(`${getBaseUrl()}/files`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ path }),
+                body: JSON.stringify({ path, language }),
                 credentials: 'include',
             });
             if (!response.ok) {
                 throw new Error(`Failed to delete: ${response.statusText}`);
             }
+            // Refresh file tree after deletion
+            await getFileTree();
             return true;
         } catch (err) {
             console.error('[v0] Error deleting file:', err);
             return false;
         }
-    }, []);
+    }, [getFileTree]);
 
     return {
         tree,

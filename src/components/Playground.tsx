@@ -38,14 +38,20 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const handleRun = async () => {
         if (!selectedLanguage) return
 
-        // Step 1: Sync current editor content to backend
-        console.log("[v0] Syncing file before execution...")
-        const syncSuccess = await updateFile(entryFile || selectedLanguage.file_name || "main", code)
+        // Determine entry file path
+        const currentEntryFile = entryFile || selectedLanguage.file_name || `main.${selectedLanguage.file_extension}`
+        console.log("[v0] Entry file:", currentEntryFile)
+
+        // Step 1: Ensure entry file exists and sync editor content
+        console.log("[v0] Syncing editor content to entry file...")
+        const syncSuccess = await updateFile(currentEntryFile, code)
 
         if (!syncSuccess) {
             console.error("[v0] File sync failed, aborting execution")
             return
         }
+
+        console.log("[v0] File synced successfully")
 
         // Step 2: Execute with streaming
         console.log("[v0] Starting execution...")
