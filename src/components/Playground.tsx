@@ -16,7 +16,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [code, setCode] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
 
-    const { updateFile } = useFileSystem()
+    const { updateFile, createFile } = useFileSystem()
     const { outputs, isRunning, execute } = useStreamExecution()
 
     const containerRef = useRef<HTMLDivElement>(null)
@@ -42,7 +42,16 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         const currentEntryFile = entryFile || selectedLanguage.file_name || `main.${selectedLanguage.file_extension}`
         console.log("[v0] Entry file:", currentEntryFile)
 
-        // Step 1: Ensure entry file exists and sync editor content
+        // Step 1: Create entry file if it doesn't exist
+        console.log("[v0] Ensuring entry file exists...")
+        const createSuccess = await createFile(currentEntryFile, 'file')
+        
+        if (!createSuccess) {
+            console.error("[v0] File creation failed, aborting execution")
+            return
+        }
+
+        // Step 2: Sync editor content to entry file
         console.log("[v0] Syncing editor content to entry file...")
         const syncSuccess = await updateFile(currentEntryFile, code)
 
@@ -53,7 +62,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
 
         console.log("[v0] File synced successfully")
 
-        // Step 2: Execute with streaming
+        // Step 3: Execute with streaming
         console.log("[v0] Starting execution...")
         await execute(selectedLanguage.language_name, "")
     }
