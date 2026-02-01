@@ -16,7 +16,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [code, setCode] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
 
-    const { updateFile } = useFileSystem()
+    const { updateFile, createFile } = useFileSystem()
     const { outputs, isRunning, execute } = useStreamExecution()
 
     const containerRef = useRef<HTMLDivElement>(null)
@@ -38,19 +38,31 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const handleRun = async () => {
         if (!selectedLanguage) return
 
-        // Step 1: Sync current editor content to backend
-        console.log("[v0] Syncing file before execution...")
-        const syncSuccess = await updateFile(entryFile || selectedLanguage.file_name || "main", code)
+        const currentEntryFile =
+            entryFile ||
+            selectedLanguage.file_name ||
+            `Main${selectedLanguage.file_extension}`
+
+        console.log('[v0] Entry file:', currentEntryFile)
+
+        // Step 1: Try creating entry file (ignore if exists)
+        console.log('[v0] Ensuring entry file exists...')
+        await createFile(currentEntryFile, 'file')
+
+        // Step 2: Sync editor content
+        console.log('[v0] Syncing editor content...')
+        const syncSuccess = await updateFile(currentEntryFile, code)
 
         if (!syncSuccess) {
-            console.error("[v0] File sync failed, aborting execution")
+            console.error('[v0] File sync failed, aborting execution')
             return
         }
 
-        // Step 2: Execute with streaming
-        console.log("[v0] Starting execution...")
-        await execute(selectedLanguage.language_name, "")
+        // Step 3: Execute
+        console.log('[v0] Starting execution...')
+        await execute(selectedLanguage.language_name, '')
     }
+
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {

@@ -50,89 +50,49 @@ export function useStreamExecution() {
         }
 
         while (true) {
-          const { done, value } = await reader.read();
+          const { done, value } = await reader.read()
+          if (done) break
 
-          if (done) {
-            // Final status
-            setOutputs((prev) => [
-              ...prev,
-              {
-                id: `line-${++lineId}`,
-                type: 'status',
-                content: 'Process completed',
-              },
-            ]);
-            break;
-          }
+          buffer += decoder.decode(value, { stream: true })
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
+          const events = buffer.split('\n\n')
+          buffer = events.pop() || ''
 
-          // Keep the last incomplete line in buffer
-          buffer = lines.pop() || '';
+          for (const evt of events) {
+            const lines = evt.split('\n')
+            let eventType = 'stdout'
+            let data = ''
 
-          for (const line of lines) {
-            if (!line.trim()) continue;
-
-            // Parse SSE format: event: type\ndata: content
-            if (line.startsWith('event:')) {
-              // Handle multi-line events if needed
-              continue;
-            }
-
-            if (line.startsWith('data:')) {
-              const content = line.slice(5).trim();
-
-              // Try to parse as JSON first (for structured events)
-              try {
-                const json = JSON.parse(content);
-                const eventType = json.event || 'stdout';
-
-                if (eventType === 'done') {
-                  setOutputs((prev) => [
-                    ...prev,
-                    {
-                      id: `line-${++lineId}`,
-                      type: 'status',
-                      content: `Process finished with exit code ${json.exitCode || 0}`,
-                    },
-                  ]);
-                } else if (eventType === 'error' || eventType === 'timeout') {
-                  setOutputs((prev) => [
-                    ...prev,
-                    {
-                      id: `line-${++lineId}`,
-                      type: 'error',
-                      content: json.message || 'Execution error',
-                    },
-                  ]);
-                } else {
-                  // stdout or stderr
-                  setOutputs((prev) => [
-                    ...prev,
-                    {
-                      id: `line-${++lineId}`,
-                      type: eventType as 'stdout' | 'stderr',
-                      content: json.content || '',
-                    },
-                  ]);
-                }
-              } catch {
-                // Plain text output
-                if (content) {
-                  setOutputs((prev) => [
-                    ...prev,
-                    {
-                      id: `line-${++lineId}`,
-                      type: 'stdout',
-                      content,
-                    },
-                  ]);
-                }
+            for (const line of lines) {
+              if (line.startsWith('event:')) {
+                eventType = line.replace('event:', '').trim()
+              }
+              if (line.startsWith('data:')) {
+                data += line.replace('data:', '').trim()
               }
             }
+
+            if (!data) continue
+
+            setOutputs(prev => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                type:
+                  eventType === 'stderr'
+                    ? 'stderr'
+                    : eventType === 'done'
+                    ? 'status'
+                    : 'stdout',
+                content:
+                  eventType === 'done'
+                    ? `Process exited with code ${data}`
+                    : JSON.parse(data),
+              },
+            ])
           }
         }
+
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown execution error';
         setError(message);

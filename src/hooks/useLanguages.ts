@@ -20,7 +20,11 @@ export function useLanguages() {
     const fetchLanguages = async () => {
       try {
         const baseUrl = import.meta.env.VITE_BACKEND_API_BASE_URL || "http://127.0.0.1:8000/api"
-        const response = await fetch(`${baseUrl}/languages`)
+        console.log(baseUrl);
+        
+        const response = await fetch(`${baseUrl}/languages`, {
+          credentials: 'include',
+        })
         if (!response.ok) {
           throw new Error(`Failed to fetch languages: ${response.statusText}`)
         }

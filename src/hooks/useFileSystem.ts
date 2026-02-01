@@ -15,14 +15,21 @@ export function useFileSystem() {
     const [error, setError] = useState<string | null>(null);
 
     const getBaseUrl = () => {
-        return import.meta.env.VITE_BACKEND_API_BASE_URL || 'http://127.0.0.1:8000/api';
-    };
+        const baseUrl = import.meta.env.VITE_BACKEND_API_BASE_URL
+        if (!baseUrl) {
+            throw new Error('VITE_BACKEND_API_BASE_URL is not defined')
+        }
+        return baseUrl
+    }
+
 
     const getFileTree = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${getBaseUrl()}/files/tree`);
+            const response = await fetch(`${getBaseUrl()}/files/tree`, {
+                credentials: 'include',
+            });
             if (!response.ok) {
                 throw new Error(`Failed to fetch file tree: ${response.statusText}`);
             }
@@ -41,9 +48,9 @@ export function useFileSystem() {
 
     const readFile = useCallback(async (path: string): Promise<string | null> => {
         try {
-            console.log(getBaseUrl());
-            
-            const response = await fetch(`${getBaseUrl()}/files/read?path=${encodeURIComponent(path)}`);
+            const response = await fetch(`${getBaseUrl()}/files/read?path=${encodeURIComponent(path)}`, {
+                credentials: 'include',
+            });
             if (!response.ok) {
                 throw new Error(`Failed to read file: ${response.statusText}`);
             }
@@ -76,45 +83,51 @@ export function useFileSystem() {
         }
     }, []);
 
-    const createFile = useCallback(async (path: string, type: 'file' | 'directory'): Promise<boolean> => {
-        try {
+    const createFile = useCallback(
+        async (path: string, type: 'file' | 'directory'): Promise<boolean> => {
+            try {
             const response = await fetch(`${getBaseUrl()}/files`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path, type }),
                 credentials: 'include',
-            });
-            if (!response.ok) {
-                throw new Error(`Failed to create: ${response.statusText}`);
-            }
-            return true;
-        } catch (err) {
-            console.error('[v0] Error creating file:', err);
-            return false;
-        }
-    }, []);
+            })
 
-    const deleteFile = useCallback(async (path: string): Promise<boolean> => {
+            // If file already exists, that's OK
+            if (!response.ok && response.status !== 409) {
+                throw new Error(`Failed to create: ${response.statusText}`)
+            }
+
+            await getFileTree()
+            return true
+            } catch (err) {
+            console.error('[v0] Error creating file:', err)
+            return false
+            }
+    },[getFileTree]);
+
+
+    const deleteFile = useCallback(async (path: string, language?: string): Promise<boolean> => {
         try {
             const response = await fetch(`${getBaseUrl()}/files`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ path }),
+                body: JSON.stringify({ path, language }),
                 credentials: 'include',
             });
             if (!response.ok) {
                 throw new Error(`Failed to delete: ${response.statusText}`);
             }
+            // Refresh file tree after deletion
+            await getFileTree();
             return true;
         } catch (err) {
             console.error('[v0] Error deleting file:', err);
             return false;
         }
-    }, []);
+    }, [getFileTree]);
 
     return {
         tree,
