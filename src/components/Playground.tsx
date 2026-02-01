@@ -14,6 +14,7 @@ interface PlaygroundProps {
 export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [dividerX, setDividerX] = useState(50)
     const [code, setCode] = useState("")
+    const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
 
     const { updateFile, createFile } = useFileSystem()
@@ -62,9 +63,13 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
 
         console.log("[v0] File synced successfully")
 
-        // Step 3: Execute with streaming
+        // Step 3: Format stdin with newlines
+        const formattedStdin = stdin.split('\n').join('\n')
+        console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
+
+        // Step 4: Execute with streaming
         console.log("[v0] Starting execution...")
-        await execute(selectedLanguage.language_name, "")
+        await execute(selectedLanguage.language_name, formattedStdin)
     }
 
     useEffect(() => {
@@ -106,7 +111,9 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             >
                 <EditorPanel 
                     code={code} 
-                    onCodeChange={setCode} 
+                    onCodeChange={setCode}
+                    stdin={stdin}
+                    onStdinChange={setStdin}
                     onRun={handleRun} 
                     isRunning={isRunning} 
                 />
