@@ -14,6 +14,7 @@ interface PlaygroundProps {
 export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [dividerX, setDividerX] = useState(50)
     const [code, setCode] = useState("")
+    const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
 
     const { updateFile, createFile } = useFileSystem()
@@ -26,7 +27,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     useEffect(() => {
         if (selectedLanguage?.code_preview) {
             setCode(selectedLanguage.code_preview)
-            // Backend will determine entry file name
+            // Backend will determine entry file name   
             setEntryFile(null)
         }
     }, [selectedLanguage?.id])
@@ -38,31 +39,38 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const handleRun = async () => {
         if (!selectedLanguage) return
 
-        const currentEntryFile =
-            entryFile ||
-            selectedLanguage.file_name ||
-            `Main${selectedLanguage.file_extension}`
+        // Determine entry file path
+        const currentEntryFile = entryFile || selectedLanguage.file_name || `main.${selectedLanguage.file_extension}`
+        console.log("[v0] Entry file:", currentEntryFile)
 
-        console.log('[v0] Entry file:', currentEntryFile)
-
-        // Step 1: Try creating entry file (ignore if exists)
-        console.log('[v0] Ensuring entry file exists...')
-        await createFile(currentEntryFile, 'file')
-
-        // Step 2: Sync editor content
-        console.log('[v0] Syncing editor content...')
-        const syncSuccess = await updateFile(currentEntryFile, code)
-
-        if (!syncSuccess) {
-            console.error('[v0] File sync failed, aborting execution')
+        // Step 1: Create entry file if it doesn't exist
+        console.log("[v0] Ensuring entry file exists...")
+        const createSuccess = await createFile(currentEntryFile, 'file')
+        
+        if (!createSuccess) {
+            console.error("[v0] File creation failed, aborting execution")
             return
         }
 
-        // Step 3: Execute
-        console.log('[v0] Starting execution...')
-        await execute(selectedLanguage.language_name, '')
-    }
+        // Step 2: Sync editor content to entry file
+        console.log("[v0] Syncing editor content to entry file...")
+        const syncSuccess = await updateFile(currentEntryFile, code)
 
+        if (!syncSuccess) {
+            console.error("[v0] File sync failed, aborting execution")
+            return
+        }
+
+        console.log("[v0] File synced successfully")
+
+        // Step 3: Format stdin with newlines
+        const formattedStdin = stdin.split('\n').join('\n')
+        console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
+
+        // Step 4: Execute with streaming
+        console.log("[v0] Starting execution...")
+        await execute(selectedLanguage.language_name, formattedStdin)
+    }
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
@@ -103,7 +111,9 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             >
                 <EditorPanel 
                     code={code} 
-                    onCodeChange={setCode} 
+                    onCodeChange={setCode}
+                    stdin={stdin}
+                    onStdinChange={setStdin}
                     onRun={handleRun} 
                     isRunning={isRunning} 
                 />
