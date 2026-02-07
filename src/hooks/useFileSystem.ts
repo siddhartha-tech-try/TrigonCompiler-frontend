@@ -15,13 +15,8 @@ export function useFileSystem() {
     const [error, setError] = useState<string | null>(null);
 
     const getBaseUrl = () => {
-        const baseUrl = import.meta.env.VITE_BACKEND_API_BASE_URL
-        if (!baseUrl) {
-            throw new Error('VITE_BACKEND_API_BASE_URL is not defined')
-        }
-        return baseUrl
-    }
-
+        return import.meta.env.VITE_BACKEND_API_BASE_URL || 'http://127.0.0.1:8000/api';
+    };
 
     const getFileTree = useCallback(async () => {
         setLoading(true);
@@ -83,29 +78,27 @@ export function useFileSystem() {
         }
     }, []);
 
-    const createFile = useCallback(
-        async (path: string, type: 'file' | 'directory'): Promise<boolean> => {
-            try {
+    const createFile = useCallback(async (path: string, type: 'file' | 'directory'): Promise<boolean> => {
+        try {
             const response = await fetch(`${getBaseUrl()}/files`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({ path, type }),
                 credentials: 'include',
-            })
-
-            // If file already exists, that's OK
-            if (!response.ok && response.status !== 409) {
-                throw new Error(`Failed to create: ${response.statusText}`)
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to create: ${response.statusText}`);
             }
-
-            await getFileTree()
-            return true
-            } catch (err) {
-            console.error('[v0] Error creating file:', err)
-            return false
-            }
-    },[getFileTree]);
-
+            // Refresh file tree after creation
+            await getFileTree();
+            return true;
+        } catch (err) {
+            console.error('[v0] Error creating file:', err);
+            return false;
+        }
+    }, [getFileTree]);
 
     const deleteFile = useCallback(async (path: string, language?: string): Promise<boolean> => {
         try {

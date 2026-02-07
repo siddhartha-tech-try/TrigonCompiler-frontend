@@ -5,7 +5,12 @@ import EditorPanel from "./EditorPanel"
 import OutputPanel from "./OutputPanel"
 import { useFileSystem } from "@/hooks/useFileSystem"
 import { useStreamExecution } from "@/hooks/useStreamExecution"
+import { useInteractiveExecution } from "@/hooks/useInteractiveExecution"
 import type { Language } from "@/hooks/useLanguages"
+import InteractiveTerminal from './InteractiveTerminal';
+
+
+type ExecutionMode = 'batch' | 'interactive'
 
 interface PlaygroundProps {
     selectedLanguage?: Language | null
@@ -16,9 +21,15 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [code, setCode] = useState("")
     const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
+    const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch')
 
     const { updateFile, createFile } = useFileSystem()
-    const { outputs, isRunning, execute } = useStreamExecution()
+    const batchExecution = useStreamExecution()
+    const interactiveExecution = useInteractiveExecution()
+
+    // Use the appropriate execution hook based on mode
+    const currentExecution = executionMode === 'batch' ? batchExecution : interactiveExecution
+    const { outputs, isRunning } = currentExecution
 
     const containerRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(false)
@@ -27,7 +38,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     useEffect(() => {
         if (selectedLanguage?.code_preview) {
             setCode(selectedLanguage.code_preview)
-            // Backend will determine entry file name   
+            // Backend will determine entry file name
             setEntryFile(null)
         }
     }, [selectedLanguage?.id])
@@ -46,7 +57,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         // Step 1: Create entry file if it doesn't exist
         console.log("[v0] Ensuring entry file exists...")
         const createSuccess = await createFile(currentEntryFile, 'file')
-        
+
         if (!createSuccess) {
             console.error("[v0] File creation failed, aborting execution")
             return
@@ -63,13 +74,20 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
 
         console.log("[v0] File synced successfully")
 
-        // Step 3: Format stdin with newlines
-        const formattedStdin = stdin.split('\n').join('\n')
-        console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
+        // Step 3: Branch on execution mode
+        if (executionMode === 'batch') {
+            // Format stdin with newlines
+            const formattedStdin = stdin.split('\n').join('\n')
+            console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
 
-        // Step 4: Execute with streaming
-        console.log("[v0] Starting execution...")
-        await execute(selectedLanguage.language_name, formattedStdin)
+            // Step 4: Execute batch with streaming
+            console.log("[v0] Starting batch execution...")
+            await batchExecution.execute(selectedLanguage.language_name, formattedStdin)
+        } else if (executionMode === 'interactive') {
+            // Step 4: Start interactive execution
+            console.log("[v0] Starting interactive execution...")
+            await interactiveExecution.startInteractive(selectedLanguage.language_name)
+        }
     }
 
     useEffect(() => {
@@ -109,13 +127,15 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                 style={{ width: `${dividerX}%` }}
                 className="flex flex-col border-r border-border"
             >
-                <EditorPanel 
-                    code={code} 
+                <EditorPanel
+                    code={code}
                     onCodeChange={setCode}
                     stdin={stdin}
                     onStdinChange={setStdin}
-                    onRun={handleRun} 
-                    isRunning={isRunning} 
+                    executionMode={executionMode}
+                    onExecutionModeChange={setExecutionMode}
+                    onRun={handleRun}
+                    isRunning={isRunning}
                 />
             </div>
 
@@ -128,10 +148,19 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             {/* Right Panel: Output */}
             <div
                 style={{ width: `${100 - dividerX}%` }}
-                className="flex flex-col bg-background"
-            >
-                <OutputPanel outputs={outputs} />
+                className="flex flex-col bg-background">
+                {executionMode === 'interactive' ? (
+                    <InteractiveTerminal
+                        outputs={outputs}
+                        isRunning={isRunning}
+                        onInput={(data) => interactiveExecution.sendInput(data)}
+                        onCtrlC={() => interactiveExecution.sendInput('__CTRL_C__')}
+                    />
+                ) : (
+                    <OutputPanel outputs={outputs} />
+                )}
             </div>
+
         </div>
     )
 }
