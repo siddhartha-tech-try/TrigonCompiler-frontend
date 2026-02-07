@@ -7,6 +7,8 @@ import { useFileSystem } from "@/hooks/useFileSystem"
 import { useStreamExecution } from "@/hooks/useStreamExecution"
 import type { Language } from "@/hooks/useLanguages"
 
+type ExecutionMode = 'batch' | 'interactive'
+
 interface PlaygroundProps {
     selectedLanguage?: Language | null
 }
@@ -16,6 +18,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [code, setCode] = useState("")
     const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
+    const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch')
 
     const { updateFile, createFile } = useFileSystem()
     const { outputs, isRunning, execute } = useStreamExecution()
@@ -63,13 +66,18 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
 
         console.log("[v0] File synced successfully")
 
-        // Step 3: Format stdin with newlines
-        const formattedStdin = stdin.split('\n').join('\n')
-        console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
+        // Step 3: Branch on execution mode
+        if (executionMode === 'batch') {
+            // Format stdin with newlines
+            const formattedStdin = stdin.split('\n').join('\n')
+            console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
 
-        // Step 4: Execute with streaming
-        console.log("[v0] Starting execution...")
-        await execute(selectedLanguage.language_name, formattedStdin)
+            // Step 4: Execute with streaming
+            console.log("[v0] Starting batch execution...")
+            await execute(selectedLanguage.language_name, formattedStdin)
+        } else if (executionMode === 'interactive') {
+            console.log('[interactive] execution will be implemented later')
+        }
     }
 
     useEffect(() => {
@@ -114,6 +122,8 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                     onCodeChange={setCode}
                     stdin={stdin}
                     onStdinChange={setStdin}
+                    executionMode={executionMode}
+                    onExecutionModeChange={setExecutionMode}
                     onRun={handleRun} 
                     isRunning={isRunning} 
                 />
