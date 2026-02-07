@@ -50,96 +50,49 @@ export function useStreamExecution() {
         }
 
         while (true) {
-          const { done, value } = await reader.read();
+          const { done, value } = await reader.read()
+          if (done) break
 
-          if (done) {
-            // Final status
-            setOutputs((prev) => [
+          buffer += decoder.decode(value, { stream: true })
+
+          const events = buffer.split('\n\n')
+          buffer = events.pop() || ''
+
+          for (const evt of events) {
+            const lines = evt.split('\n')
+            let eventType = 'stdout'
+            let data = ''
+
+            for (const line of lines) {
+              if (line.startsWith('event:')) {
+                eventType = line.replace('event:', '').trim()
+              }
+              if (line.startsWith('data:')) {
+                data += line.replace('data:', '').trim()
+              }
+            }
+
+            if (!data) continue
+
+            setOutputs(prev => [
               ...prev,
               {
-                id: `line-${++lineId}`,
-                type: 'status',
-                content: 'Process completed',
+                id: crypto.randomUUID(),
+                type:
+                  eventType === 'stderr'
+                    ? 'stderr'
+                    : eventType === 'done'
+                      ? 'status'
+                      : 'stdout',
+                content:
+                  eventType === 'done'
+                    ? `Process exited with code ${data}`
+                    : JSON.parse(data),
               },
-            ]);
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-
-          // Keep the last incomplete line in buffer
-          buffer = lines.pop() || '';
-
-          // Parse SSE format: event and data on separate lines
-          let currentEvent = 'stdout';
-          let currentData: string | null = null;
-
-          for (const line of lines) {
-            if (!line.trim()) {
-              // Empty line indicates end of event
-              if (currentData !== null) {
-                // Process the event
-                try {
-                  const json = JSON.parse(currentData);
-                  const eventType = json.event || currentEvent;
-
-                  if (eventType === 'done') {
-                    setOutputs((prev) => [
-                      ...prev,
-                      {
-                        id: `line-${++lineId}`,
-                        type: 'status',
-                        content: `Process finished with exit code ${json.exitCode || 0}`,
-                      },
-                    ]);
-                  } else if (eventType === 'error' || eventType === 'timeout') {
-                    setOutputs((prev) => [
-                      ...prev,
-                      {
-                        id: `line-${++lineId}`,
-                        type: 'error',
-                        content: json.message || 'Execution error',
-                      },
-                    ]);
-                  } else {
-                    // stdout or stderr
-                    setOutputs((prev) => [
-                      ...prev,
-                      {
-                        id: `line-${++lineId}`,
-                        type: eventType as 'stdout' | 'stderr',
-                        content: json.content || '',
-                      },
-                    ]);
-                  }
-                } catch {
-                  // Plain text output
-                  if (currentData) {
-                    setOutputs((prev) => [
-                      ...prev,
-                      {
-                        id: `line-${++lineId}`,
-                        type: currentEvent as 'stdout' | 'stderr',
-                        content: currentData,
-                      },
-                    ]);
-                  }
-                }
-              }
-              currentEvent = 'stdout';
-              currentData = null;
-              continue;
-            }
-
-            // Parse SSE format: event: type or data: content
-            if (line.startsWith('event:')) {
-              currentEvent = line.slice(6).trim();
-            } else if (line.startsWith('data:')) {
-              currentData = line.slice(5).trim();
-            }
+            ])
           }
         }
+
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown execution error';
         setError(message);

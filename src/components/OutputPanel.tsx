@@ -2,7 +2,7 @@
 
 interface OutputLine {
     id: string
-    type: "stdout" | "stderr" | "status"
+    type: "stdout" | "stderr" | "status" | "system" | "error"
     content: string
 }
 
@@ -30,9 +30,11 @@ export default function OutputPanel({ outputs }: OutputPanelProps) {
                                 className={
                                     output.type === "stderr"
                                         ? "text-destructive whitespace-pre-wrap"
-                                        : output.type === "status"
-                                            ? "text-muted-foreground whitespace-pre-wrap"
-                                            : "text-foreground whitespace-pre-wrap"
+                                        : output.type === "error"
+                                            ? "text-destructive whitespace-pre-wrap"
+                                            : output.type === "status" || output.type === "system"
+                                                ? "text-muted-foreground whitespace-pre-wrap"
+                                                : "text-foreground whitespace-pre-wrap"
                                 }
                             >
                                 {output.content}

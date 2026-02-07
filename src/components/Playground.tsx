@@ -5,6 +5,7 @@ import EditorPanel from "./EditorPanel"
 import OutputPanel from "./OutputPanel"
 import { useFileSystem } from "@/hooks/useFileSystem"
 import { useStreamExecution } from "@/hooks/useStreamExecution"
+import { useInteractiveExecution } from "@/hooks/useInteractiveExecution"
 import type { Language } from "@/hooks/useLanguages"
 
 type ExecutionMode = 'batch' | 'interactive'
@@ -21,7 +22,12 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch')
 
     const { updateFile, createFile } = useFileSystem()
-    const { outputs, isRunning, execute } = useStreamExecution()
+    const batchExecution = useStreamExecution()
+    const interactiveExecution = useInteractiveExecution()
+    
+    // Use the appropriate execution hook based on mode
+    const currentExecution = executionMode === 'batch' ? batchExecution : interactiveExecution
+    const { outputs, isRunning } = currentExecution
 
     const containerRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(false)
@@ -72,11 +78,13 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             const formattedStdin = stdin.split('\n').join('\n')
             console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
 
-            // Step 4: Execute with streaming
+            // Step 4: Execute batch with streaming
             console.log("[v0] Starting batch execution...")
-            await execute(selectedLanguage.language_name, formattedStdin)
+            await batchExecution.execute(selectedLanguage.language_name, formattedStdin)
         } else if (executionMode === 'interactive') {
-            console.log('[interactive] execution will be implemented later')
+            // Step 4: Start interactive execution
+            console.log("[v0] Starting interactive execution...")
+            await interactiveExecution.startInteractive(selectedLanguage.language_name)
         }
     }
 
