@@ -10,10 +10,11 @@ interface EditorPanelProps {
     executionMode: 'batch' | 'interactive'
     onExecutionModeChange: (mode: 'batch' | 'interactive') => void
     onRun: () => void
+    onStop?: () => void
     isRunning: boolean
 }
 
-export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, executionMode, onExecutionModeChange, onRun, isRunning,}: EditorPanelProps) {
+export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, executionMode, onExecutionModeChange, onRun, isRunning, onStop,}: EditorPanelProps) {
     return (
         <div className="flex flex-col h-full">
             {/* Panel Header */}
@@ -42,14 +43,27 @@ export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, e
                     </Button>
                 </div>
 
-                <Button
-                    onClick={onRun}
-                    disabled={isRunning}
-                    size="sm"
-                    className="bg-primary hover:bg-primary/90"
-                >
-                    {isRunning ? "Running..." : "Run"}
-                </Button>
+                <div>
+                    {executionMode === 'interactive' && isRunning && onStop && (
+                        <Button
+                            onClick={onStop}
+                            size="sm"
+                            variant="destructive"
+                        >
+                            Stop
+                        </Button>
+                    )}
+
+
+                    <Button
+                        onClick={onRun}
+                        disabled={isRunning}
+                        size="sm"
+                        className="bg-primary hover:bg-primary/90"
+                    >
+                        {isRunning ? "Running..." : "Run"}
+                    </Button>
+                </div>
             </div>
 
             {/* Code Editor */}

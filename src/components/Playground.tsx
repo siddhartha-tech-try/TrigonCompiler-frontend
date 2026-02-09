@@ -34,6 +34,13 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(false)
 
+    const handleStop = () => {
+        if (executionMode === 'interactive') {
+            interactiveExecution.stop();
+        }
+    };
+
+
     // Initialize with code preview when language changes
     useEffect(() => {
         if (selectedLanguage?.code_preview) {
@@ -136,6 +143,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                     onExecutionModeChange={setExecutionMode}
                     onRun={handleRun}
                     isRunning={isRunning}
+                    onStop={handleStop}
                 />
             </div>
 

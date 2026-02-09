@@ -11,168 +11,107 @@ export interface InteractiveOutputLine {
 export function useInteractiveExecution() {
   const [outputs, setOutputs] = useState<InteractiveOutputLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const wsRef = useRef<WebSocket | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
 
-  const getBaseUrl = () => {
-    return import.meta.env.VITE_BACKEND_API_BASE_URL || 'http://127.0.0.1:8000/api';
-  };
-
-  const getWsUrl = () => {
-    const baseUrl = getBaseUrl();
-    // Convert http/https to ws/wss
-    return baseUrl.replace(/^http/, 'ws');
-  };
+  const getBaseUrl = () =>
+    import.meta.env.VITE_BACKEND_API_BASE_URL || 'http://127.0.0.1:8000/api';
 
   const startInteractive = useCallback(async (language: string) => {
+    if (isRunning) return;
+
     setIsRunning(true);
+    setSessionEnded(false);
     setOutputs([]);
     setError(null);
 
     try {
-      // Step 1: Create interactive session
-      console.log('[v0] Creating interactive session...');
       const response = await fetch(`${getBaseUrl()}/execute/interactive`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language }),
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create interactive session: ${response.statusText}`);
+        throw new Error(`Failed to start interactive session`);
       }
 
-      const data = await response.json();
-      const { session_id, ws_url } = data;
-
-      if (!session_id || !ws_url) {
-        throw new Error('Invalid response: missing session_id or ws_url');
-      }
-
-      sessionIdRef.current = session_id;
-      console.log('[v0] Interactive session created:', session_id);
-
-      // Step 2: Open WebSocket connection
-      console.log('[v0] Connecting to WebSocket:', ws_url);
+      const { ws_url } = await response.json();
       const ws = new WebSocket(ws_url);
-
-      ws.onopen = () => {
-        console.log('[v0] WebSocket connected');
-      };
+      wsRef.current = ws;
 
       ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          console.log('[v0] WebSocket message:', message);
+        const msg = JSON.parse(event.data);
 
-          const { type, data: msgData, status } = message;
-          
-
-          // Map message to output line
-          let outputType: 'stdout' | 'stderr' | 'system' = 'stdout';
-          let content = '';
-
-          if (type === 'stdout') {
-            outputType = 'stdout';
-            content = msgData || '';
-          } else if (type === 'stderr') {
-            outputType = 'stderr';
-            content = msgData || '';
-          } else if (type === 'system') {
-              outputType = 'system';
-              content =
-                status === 'program_exited'
-                  ? `Program exited (code ${message.exitCode ?? 0})`
-                  : status;
-            }
-
-
-          if (content) {
-            setOutputs((prev) => [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                type: outputType,
-                content,
-              },
-            ]);
-          }
-
-          // Handle execution completion
-          if (type === 'system' && status === 'program_exited') {
-            setIsRunning(false);
-          }
-
-        } catch (err) {
-          console.error('[v0] Error parsing WebSocket message:', err);
+        if (msg.type === 'stdout' || msg.type === 'stderr') {
+          setOutputs((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              type: msg.type,
+              content: msg.data,
+            },
+          ]);
         }
+
+        if (msg.type === 'system') {
+          setOutputs((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              type: 'system',
+              content: msg.status,
+            },
+          ]);
+
+          if (msg.status === 'program_exited') {
+            setIsRunning(false);
+            setSessionEnded(true);
+            ws.close();
+          }
+        }
+
       };
 
-      ws.onerror = (event) => {
-        console.error('[v0] WebSocket error:', event);
-        const message = 'WebSocket connection error';
-        setError(message);
-        setOutputs((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            type: 'system',
-            content: message,
-          },
-        ]);
+      ws.onerror = () => {
+        setError('WebSocket error');
         setIsRunning(false);
+        setSessionEnded(true);
       };
 
       ws.onclose = () => {
-        console.log('[v0] WebSocket closed');
+        wsRef.current = null;
         setIsRunning(false);
       };
-
-      wsRef.current = ws;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(message);
-      setOutputs((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: 'system',
-          content: message,
-        },
-      ]);
-      console.error('[v0] Interactive execution error:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setIsRunning(false);
+      setSessionEnded(true);
     }
-  }, []);
+  }, [isRunning]);
 
   const sendInput = useCallback((data: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const message = { type: 'stdin', data };
-      console.log('[v0] Sending stdin:', message);
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.warn('[v0] WebSocket not connected');
-    }
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: 'stdin', data }));
   }, []);
 
   const stop = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const message = { type: 'control', action: 'stop' };
-      console.log('[v0] Stopping execution:', message);
-      wsRef.current.send(JSON.stringify(message));
+      wsRef.current.send(JSON.stringify({ type: 'control', action: 'stop' }));
       wsRef.current.close();
     }
+    wsRef.current = null;
     setIsRunning(false);
-    sessionIdRef.current = null;
+    setSessionEnded(true);
   }, []);
 
   return {
     outputs,
     isRunning,
+    sessionEnded,
     error,
     startInteractive,
     sendInput,
