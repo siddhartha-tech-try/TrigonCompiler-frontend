@@ -1,36 +1,59 @@
 'use client';
 
 import { Button } from "@/components/ui/button"
+import { X } from 'lucide-react';
 
 interface EditorPanelProps {
-    code: string
-    onCodeChange: (code: string) => void
+    activeFilePath: string | null
+    fileContent: string
+    onFileContentChange: (content: string) => void
+    onFileClose: () => void
     stdin: string
     onStdinChange: (stdin: string) => void
-    executionMode: 'batch' | 'interactive'
-    onExecutionModeChange: (mode: 'batch' | 'interactive') => void
+    executionMode: 'interactive' | 'batch'
+    onExecutionModeChange: (mode: 'interactive' | 'batch') => void
     onRun: () => void
+    onStop?: () => void
     isRunning: boolean
 }
 
-export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, executionMode, onExecutionModeChange, onRun, isRunning,}: EditorPanelProps) {
+export default function EditorPanel({ 
+    activeFilePath, 
+    fileContent, 
+    onFileContentChange, 
+    onFileClose,
+    stdin, 
+    onStdinChange, 
+    executionMode, 
+    onExecutionModeChange, 
+    onRun, 
+    isRunning, 
+    onStop, 
+}: EditorPanelProps) {
+    const filename = activeFilePath ? activeFilePath.split('/').pop() : null;
+
     return (
         <div className="flex flex-col h-full">
             {/* Panel Header */}
             <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-4">
-                <h2 className="text-sm font-semibold text-foreground">Editor</h2>
-                
+                <div className="flex items-center gap-2 min-w-0">
+                    <h2 className="text-sm font-semibold text-foreground">Editor</h2>
+                    {filename && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-background rounded text-xs text-muted-foreground">
+                            <span className="truncate">{filename}</span>
+                            <button
+                                onClick={onFileClose}
+                                disabled={isRunning}
+                                className="hover:text-foreground disabled:opacity-50"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 {/* Execution Mode Toggle */}
                 <div className="flex gap-2">
-                    <Button
-                        onClick={() => onExecutionModeChange('batch')}
-                        disabled={isRunning}
-                        size="sm"
-                        variant={executionMode === 'batch' ? 'default' : 'ghost'}
-                        className="text-xs"
-                    >
-                        Batch
-                    </Button>
                     <Button
                         onClick={() => onExecutionModeChange('interactive')}
                         disabled={isRunning}
@@ -42,27 +65,45 @@ export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, e
                     </Button>
                 </div>
 
-                <Button
-                    onClick={onRun}
-                    disabled={isRunning}
-                    size="sm"
-                    className="bg-primary hover:bg-primary/90"
-                >
-                    {isRunning ? "Running..." : "Run"}
-                </Button>
+                <div className="flex gap-2">
+                    {executionMode === 'interactive' && isRunning && onStop && (
+                        <Button
+                            onClick={onStop}
+                            size="sm"
+                            variant="destructive"
+                        >
+                            Stop
+                        </Button>
+                    )}
+
+                    <Button
+                        onClick={onRun}
+                        disabled={isRunning || !activeFilePath}
+                        size="sm"
+                        className="bg-primary hover:bg-primary/90"
+                    >
+                        {isRunning ? "Running..." : "Run"}
+                    </Button>
+                </div>
             </div>
 
             {/* Code Editor */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <textarea
-                    value={code}
-                    onChange={(e) => onCodeChange(e.target.value)}
-                    disabled={isRunning}
-                    className="flex-1 bg-background text-foreground font-mono text-sm resize-none focus:outline-none p-4 border-0"
-                    placeholder="Write your code here..."
-                    spellCheck="false"
-                />
-            </div>
+            {activeFilePath ? (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <textarea
+                        value={fileContent}
+                        onChange={(e) => onFileContentChange(e.target.value)}
+                        disabled={isRunning}
+                        className="flex-1 bg-background text-foreground font-mono text-sm resize-none focus:outline-none p-4 border-0"
+                        placeholder="Write your code here..."
+                        spellCheck="false"
+                    />
+                </div>
+            ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    <span className="text-sm">Select a file to start editing</span>
+                </div>
+            )}
 
             {/* Stdin Input - Bottom Section (only show in batch mode) */}
             {executionMode === 'batch' && (

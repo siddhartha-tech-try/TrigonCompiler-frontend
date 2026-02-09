@@ -3,10 +3,16 @@
 import { useState, useRef, useEffect } from "react"
 import EditorPanel from "./EditorPanel"
 import OutputPanel from "./OutputPanel"
+import FileTree from "./FileTree"
+import FileCreationModal from "./FileCreationModal"
 import { useFileSystem } from "@/hooks/useFileSystem"
+import { useFileCache } from "@/hooks/useFileCache"
 import { useStreamExecution } from "@/hooks/useStreamExecution"
 import { useInteractiveExecution } from "@/hooks/useInteractiveExecution"
 import type { Language } from "@/hooks/useLanguages"
+import InteractiveTerminal from './InteractiveTerminal';
+import { useSession } from '@/contexts/SessionContext';
+
 
 type ExecutionMode = 'batch' | 'interactive'
 
@@ -15,16 +21,18 @@ interface PlaygroundProps {
 }
 
 export default function Playground({ selectedLanguage }: PlaygroundProps) {
-    const [dividerX, setDividerX] = useState(50)
-    const [code, setCode] = useState("")
+    const [dividerX, setDividerX] = useState(20)
     const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
-    const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch')
+    const [executionMode, setExecutionMode] = useState<ExecutionMode>('interactive')
+    const [showFileModal, setShowFileModal] = useState(false)
+    const { registerTeardown } = useSession();
 
-    const { updateFile, createFile } = useFileSystem()
+    const { tree, loading, getFileTree, readFile, updateFile, createFile } = useFileSystem()
+    const fileCache = useFileCache()
     const batchExecution = useStreamExecution()
     const interactiveExecution = useInteractiveExecution()
-    
+
     // Use the appropriate execution hook based on mode
     const currentExecution = executionMode === 'batch' ? batchExecution : interactiveExecution
     const { outputs, isRunning } = currentExecution
@@ -32,12 +40,62 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(false)
 
-    // Initialize with code preview when language changes
     useEffect(() => {
-        if (selectedLanguage?.code_preview) {
-            setCode(selectedLanguage.code_preview)
-            // Backend will determine entry file name
-            setEntryFile(null)
+        registerTeardown(() => {
+            if (executionMode === 'interactive') {
+                interactiveExecution.stop();
+            }
+        });
+    }, []);
+
+    const handleStop = () => {
+        if (executionMode === 'interactive') {
+            interactiveExecution.stop();
+        }
+    };
+
+    const handleFileSelect = async (path: string) => {
+        // Check if file is already in cache
+        if (!fileCache.cache[path]) {
+            const content = await fileCache.loadFile(path, readFile)
+            if (content === null) {
+                console.error('[v0] Failed to load file:', path)
+                return
+            }
+        }
+        fileCache.setActive(path)
+    };
+
+    const handleCreateFile = async (filename: string) => {
+        const fullPath = filename
+        const success = await createFile(fullPath, 'file')
+        if (success) {
+            fileCache.addFileToCache(fullPath, '')
+            fileCache.setActive(fullPath)
+            await getFileTree()
+            setShowFileModal(false)
+        }
+    };
+
+
+    // Initialize file tree and entry file when language changes
+    useEffect(() => {
+        if (selectedLanguage) {
+            fileCache.clearCache()
+            setEntryFile(selectedLanguage.file_name)
+            
+            // Load file tree
+            const loadTree = async () => {
+                const treeData = await getFileTree()
+                
+                // Auto-load entry file from code preview
+                if (selectedLanguage.code_preview && selectedLanguage.file_name) {
+                    fileCache.addFileToCache(selectedLanguage.file_name, selectedLanguage.code_preview)
+                    fileCache.setActive(selectedLanguage.file_name)
+                }
+            }
+            
+            loadTree()
         }
     }, [selectedLanguage?.id])
 
@@ -46,43 +104,37 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     }
 
     const handleRun = async () => {
-        if (!selectedLanguage) return
+        if (!selectedLanguage || !fileCache.activeFilePath) return
 
-        // Determine entry file path
-        const currentEntryFile = entryFile || selectedLanguage.file_name || `main.${selectedLanguage.file_extension}`
-        console.log("[v0] Entry file:", currentEntryFile)
+        console.log("[v0] Starting execution...")
 
-        // Step 1: Create entry file if it doesn't exist
-        console.log("[v0] Ensuring entry file exists...")
-        const createSuccess = await createFile(currentEntryFile, 'file')
-        
-        if (!createSuccess) {
-            console.error("[v0] File creation failed, aborting execution")
-            return
+        // Step 1: Sync all dirty files to backend
+        const dirtyFiles = fileCache.getDirtyFiles()
+        console.log("[v0] Syncing", dirtyFiles.length, "dirty files...")
+
+        for (const file of dirtyFiles) {
+            const syncSuccess = await updateFile(file.path, file.content)
+            if (syncSuccess) {
+                fileCache.markFileClean(file.path)
+            } else {
+                console.error("[v0] Failed to sync file:", file.path)
+                return
+            }
         }
 
-        // Step 2: Sync editor content to entry file
-        console.log("[v0] Syncing editor content to entry file...")
-        const syncSuccess = await updateFile(currentEntryFile, code)
+        console.log("[v0] All files synced successfully")
 
-        if (!syncSuccess) {
-            console.error("[v0] File sync failed, aborting execution")
-            return
-        }
-
-        console.log("[v0] File synced successfully")
-
-        // Step 3: Branch on execution mode
+        // Step 2: Branch on execution mode
         if (executionMode === 'batch') {
             // Format stdin with newlines
             const formattedStdin = stdin.split('\n').join('\n')
             console.log("[v0] Stdin formatted:", JSON.stringify(formattedStdin))
 
-            // Step 4: Execute batch with streaming
+            // Step 3: Execute batch with streaming
             console.log("[v0] Starting batch execution...")
             await batchExecution.execute(selectedLanguage.language_name, formattedStdin)
         } else if (executionMode === 'interactive') {
-            // Step 4: Start interactive execution
+            // Step 3: Start interactive execution
             console.log("[v0] Starting interactive execution...")
             await interactiveExecution.startInteractive(selectedLanguage.language_name)
         }
@@ -120,36 +172,72 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             ref={containerRef}
             className="flex h-full overflow-hidden bg-background"
         >
-            {/* Left Panel: Editor */}
+            {/* Left Panel: File Tree */}
             <div
                 style={{ width: `${dividerX}%` }}
                 className="flex flex-col border-r border-border"
             >
-                <EditorPanel 
-                    code={code} 
-                    onCodeChange={setCode}
-                    stdin={stdin}
-                    onStdinChange={setStdin}
-                    executionMode={executionMode}
-                    onExecutionModeChange={setExecutionMode}
-                    onRun={handleRun} 
-                    isRunning={isRunning} 
+                <FileTree
+                    tree={tree}
+                    activeFilePath={fileCache.activeFilePath}
+                    onFileSelect={handleFileSelect}
+                    onCreateFile={() => setShowFileModal(true)}
+                    loading={loading}
                 />
             </div>
 
-            {/* Divider */}
+            {/* Divider 1 */}
             <div
                 onMouseDown={handleMouseDown}
                 className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0"
             />
 
+            {/* Middle Panel: Editor */}
+            <div
+                style={{ width: `${40 - dividerX}%` }}
+                className="flex flex-col border-r border-border"
+            >
+                <EditorPanel
+                    activeFilePath={fileCache.activeFilePath}
+                    fileContent={fileCache.getActiveContent()}
+                    onFileContentChange={fileCache.updateActiveContent}
+                    onFileClose={() => fileCache.setActive(null)}
+                    stdin={stdin}
+                    onStdinChange={setStdin}
+                    executionMode={executionMode}
+                    onExecutionModeChange={setExecutionMode}
+                    onRun={handleRun}
+                    isRunning={isRunning}
+                    onStop={handleStop}
+                />
+            </div>
+
+            {/* Divider 2 */}
+            <div className="w-1 bg-border flex-shrink-0" />
+
             {/* Right Panel: Output */}
             <div
-                style={{ width: `${100 - dividerX}%` }}
-                className="flex flex-col bg-background"
-            >
-                <OutputPanel outputs={outputs} />
+                style={{ width: `${60 + dividerX}%` }}
+                className="flex flex-col bg-background">
+                {executionMode === 'interactive' ? (
+                    <InteractiveTerminal
+                        outputs={outputs}
+                        isRunning={isRunning}
+                        onInput={(data) => interactiveExecution.sendInput(data)}
+                        onCtrlC={() => interactiveExecution.sendInput('__CTRL_C__')}
+                    />
+                ) : (
+                    <OutputPanel outputs={outputs} />
+                )}
             </div>
+
+            {/* File Creation Modal */}
+            <FileCreationModal
+                isOpen={showFileModal}
+                onClose={() => setShowFileModal(false)}
+                onCreate={handleCreateFile}
+                fileExtension={selectedLanguage?.file_extension}
+            />
         </div>
     )
 }
