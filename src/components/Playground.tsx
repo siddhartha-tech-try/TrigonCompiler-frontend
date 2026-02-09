@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react"
 import EditorPanel from "./EditorPanel"
 import OutputPanel from "./OutputPanel"
-import FileTree from "./FileTree"
 import FileCreationModal from "./FileCreationModal"
 import { useFileSystem } from "@/hooks/useFileSystem"
 import { useFileCache } from "@/hooks/useFileCache"
@@ -21,14 +20,14 @@ interface PlaygroundProps {
 }
 
 export default function Playground({ selectedLanguage }: PlaygroundProps) {
-    const [dividerX, setDividerX] = useState(20)
+    const [dividerX, setDividerX] = useState(50)
     const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
     const [executionMode, setExecutionMode] = useState<ExecutionMode>('interactive')
     const [showFileModal, setShowFileModal] = useState(false)
     const { registerTeardown } = useSession();
 
-    const { tree, loading, getFileTree, readFile, updateFile, createFile } = useFileSystem()
+    const { getFileTree, readFile, updateFile, createFile } = useFileSystem()
     const fileCache = useFileCache()
     const batchExecution = useStreamExecution()
     const interactiveExecution = useInteractiveExecution()
@@ -66,6 +65,22 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         fileCache.setActive(path)
     };
 
+    const handleFileClose = (path: string) => {
+        // Don't allow closing entry file
+        if (path === entryFile) return
+        
+        fileCache.removeFileFromCache(path)
+        // If this was the active file, select first remaining open file
+        if (fileCache.activeFilePath === path) {
+            const remainingFiles = Object.keys(fileCache.cache).filter(f => f !== path)
+            if (remainingFiles.length > 0) {
+                fileCache.setActive(remainingFiles[0])
+            } else {
+                fileCache.setActive(null)
+            }
+        }
+    };
+
     const handleCreateFile = async (filename: string) => {
         const fullPath = filename
         const success = await createFile(fullPath, 'file')
@@ -99,7 +114,8 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         }
     }, [selectedLanguage?.id])
 
-    const handleMouseDown = () => {
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault()
         isDraggingRef.current = true
     }
 
@@ -167,41 +183,27 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         }
     }, [])
 
+    const openFiles = Object.keys(fileCache.cache)
+
     return (
         <div
             ref={containerRef}
             className="flex h-full overflow-hidden bg-background"
         >
-            {/* Left Panel: File Tree */}
+            {/* Left Panel: Editor */}
             <div
                 style={{ width: `${dividerX}%` }}
-                className="flex flex-col border-r border-border"
-            >
-                <FileTree
-                    tree={tree}
-                    activeFilePath={fileCache.activeFilePath}
-                    onFileSelect={handleFileSelect}
-                    onCreateFile={() => setShowFileModal(true)}
-                    loading={loading}
-                />
-            </div>
-
-            {/* Divider 1 */}
-            <div
-                onMouseDown={handleMouseDown}
-                className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0"
-            />
-
-            {/* Middle Panel: Editor */}
-            <div
-                style={{ width: `${40 - dividerX}%` }}
                 className="flex flex-col border-r border-border"
             >
                 <EditorPanel
                     activeFilePath={fileCache.activeFilePath}
                     fileContent={fileCache.getActiveContent()}
+                    openFiles={openFiles}
+                    onFileSelect={handleFileSelect}
                     onFileContentChange={fileCache.updateActiveContent}
-                    onFileClose={() => fileCache.setActive(null)}
+                    onFileClose={handleFileClose}
+                    onCreateFile={() => setShowFileModal(true)}
+                    entryFile={entryFile}
                     stdin={stdin}
                     onStdinChange={setStdin}
                     executionMode={executionMode}
@@ -212,12 +214,15 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                 />
             </div>
 
-            {/* Divider 2 */}
-            <div className="w-1 bg-border flex-shrink-0" />
+            {/* Divider */}
+            <div
+                onMouseDown={handleMouseDown}
+                className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0 active:bg-primary"
+            />
 
             {/* Right Panel: Output */}
             <div
-                style={{ width: `${60 + dividerX}%` }}
+                style={{ width: `${100 - dividerX}%` }}
                 className="flex flex-col bg-background">
                 {executionMode === 'interactive' ? (
                     <InteractiveTerminal
