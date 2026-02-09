@@ -99,9 +99,17 @@ export function useInteractiveExecution() {
   }, []);
 
   const stop = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'control', action: 'stop' }));
-      wsRef.current.close();
+    if (wsRef.current) {
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({ type: 'control', action: 'stop' })
+          );
+        }
+        wsRef.current.close();
+      } catch (e) {
+        console.warn('[v0] WS stop failed', e);
+      }
     }
     wsRef.current = null;
     setIsRunning(false);

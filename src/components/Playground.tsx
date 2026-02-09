@@ -8,6 +8,7 @@ import { useStreamExecution } from "@/hooks/useStreamExecution"
 import { useInteractiveExecution } from "@/hooks/useInteractiveExecution"
 import type { Language } from "@/hooks/useLanguages"
 import InteractiveTerminal from './InteractiveTerminal';
+import { useSession } from '@/contexts/SessionContext';
 
 
 type ExecutionMode = 'batch' | 'interactive'
@@ -21,7 +22,8 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [code, setCode] = useState("")
     const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
-    const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch')
+    const [executionMode, setExecutionMode] = useState<ExecutionMode>('interactive')
+    const { registerTeardown } = useSession();
 
     const { updateFile, createFile } = useFileSystem()
     const batchExecution = useStreamExecution()
@@ -33,6 +35,14 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
 
     const containerRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(false)
+
+    useEffect(() => {
+        registerTeardown(() => {
+            if (executionMode === 'interactive') {
+            interactiveExecution.stop();
+            }
+        });
+    }, []);
 
     const handleStop = () => {
         if (executionMode === 'interactive') {

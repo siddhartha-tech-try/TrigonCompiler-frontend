@@ -7,8 +7,8 @@ interface EditorPanelProps {
     onCodeChange: (code: string) => void
     stdin: string
     onStdinChange: (stdin: string) => void
-    executionMode: 'batch' | 'interactive'
-    onExecutionModeChange: (mode: 'batch' | 'interactive') => void
+    executionMode: 'interactive' | 'batch'
+    onExecutionModeChange: (mode: 'interactive' | 'batch') => void
     onRun: () => void
     onStop?: () => void
     isRunning: boolean
@@ -23,7 +23,7 @@ export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, e
                 
                 {/* Execution Mode Toggle */}
                 <div className="flex gap-2">
-                    <Button
+                    {/* <Button
                         onClick={() => onExecutionModeChange('batch')}
                         disabled={isRunning}
                         size="sm"
@@ -31,7 +31,7 @@ export default function EditorPanel({code, onCodeChange, stdin, onStdinChange, e
                         className="text-xs"
                     >
                         Batch
-                    </Button>
+                    </Button> */}
                     <Button
                         onClick={() => onExecutionModeChange('interactive')}
                         disabled={isRunning}

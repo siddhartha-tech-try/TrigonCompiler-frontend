@@ -1,28 +1,78 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 interface SessionContextType {
   sessionInitialized: boolean;
   sessionError: string | null;
+  cleanupSession: () => void;
+  registerTeardown: (fn: () => void) => void;
 }
 
 const SessionContext = createContext<SessionContextType>({
   sessionInitialized: false,
   sessionError: null,
+  cleanupSession: () => { },
+  registerTeardown: () => { },
 });
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  const cleanupTriggeredRef = useRef(false);
+
+  const teardownCallbacksRef = useRef<(() => void)[]>([]);
+
+  const registerTeardown = (fn: () => void) => {
+    teardownCallbacksRef.current.push(fn);
+  };
+
+
+  const getBaseUrl = () =>
+    import.meta.env.VITE_BACKEND_API_BASE_URL ||
+    'http://127.0.0.1:8000/api';
+
+  /**
+   * 🔥 Cleanup coordinator
+   * Safe to call multiple times
+   */
+  const cleanupSession = () => {
+    if (cleanupTriggeredRef.current) return;
+    cleanupTriggeredRef.current = true;
+
+    // 🔴 1. Stop interactive execution FIRST
+    teardownCallbacksRef.current.forEach(fn => {
+      try {
+        fn();
+      } catch {}
+    });
+
+    // 🔵 2. Backend cleanup (best effort)
+    try {
+      navigator.sendBeacon(
+        `${getBaseUrl()}/sessions/cleanup`,
+        JSON.stringify({})
+      );
+    } catch {}
+  };
+
+
+  /**
+   * Bootstrap session (existing logic)
+   */
   useEffect(() => {
     const bootstrapSession = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_BACKEND_API_BASE_URL || 'http://127.0.0.1:8000/api';
         console.log('[v0] Bootstrapping session...');
-        
-        const response = await fetch(`${baseUrl}/sessions/bootstrap`, {
+
+        const response = await fetch(`${getBaseUrl()}/sessions/bootstrap`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -48,8 +98,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     bootstrapSession();
   }, []);
 
+  /**
+   * ⚠️ Tab close / refresh warning
+   */
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      cleanupSession(); // fire best-effort cleanup
+
+      e.preventDefault();
+      e.returnValue = ''; // required for Chrome
+      return '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   return (
-    <SessionContext.Provider value={{ sessionInitialized, sessionError }}>
+    <SessionContext.Provider
+      value={{ sessionInitialized, sessionError, cleanupSession, registerTeardown, }}>
       {children}
     </SessionContext.Provider>
   );

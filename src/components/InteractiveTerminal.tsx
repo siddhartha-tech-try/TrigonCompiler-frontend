@@ -61,6 +61,7 @@ export default function InteractiveTerminal({
         let inputBuffer = '';
 
         term.onData((data) => {
+            if (!isRunning) return;
             // Ctrl+C
             if (data === '\x03') {
                 term.write('^C\r\n');
