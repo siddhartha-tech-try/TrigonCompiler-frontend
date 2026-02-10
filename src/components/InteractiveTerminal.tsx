@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface InteractiveTerminalProps {
     outputs: {
@@ -21,6 +22,7 @@ export default function InteractiveTerminal({
     onCtrlC,
     isRunning,
 }: InteractiveTerminalProps) {
+    const { theme } = useTheme();
     const initializedRef = useRef(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const termRef = useRef<Terminal | null>(null);
@@ -34,13 +36,29 @@ export default function InteractiveTerminal({
 
         initializedRef.current = true;
 
+        const getTerminalTheme = (isDark: boolean) => {
+            if (isDark) {
+                return {
+                    background: '#000000',
+                    foreground: '#ffffff',
+                    cursor: '#ffffff',
+                    cursorAccent: '#000000',
+                };
+            } else {
+                return {
+                    background: '#ffffff',
+                    foreground: '#000000',
+                    cursor: '#000000',
+                    cursorAccent: '#ffffff',
+                };
+            }
+        };
+
         const term = new Terminal({
             cursorBlink: true,
             fontSize: 13,
             fontFamily: 'monospace',
-            theme: {
-                background: '#000000',
-            },
+            theme: getTerminalTheme(theme === 'dark'),
         });
 
         const fitAddon = new FitAddon();
@@ -118,6 +136,32 @@ export default function InteractiveTerminal({
 
 
 
+    // Update terminal theme when theme changes
+    useEffect(() => {
+        const term = termRef.current;
+        if (!term) return;
+
+        const getTerminalTheme = (isDark: boolean) => {
+            if (isDark) {
+                return {
+                    background: '#000000',
+                    foreground: '#ffffff',
+                    cursor: '#ffffff',
+                    cursorAccent: '#000000',
+                };
+            } else {
+                return {
+                    background: '#ffffff',
+                    foreground: '#000000',
+                    cursor: '#000000',
+                    cursorAccent: '#ffffff',
+                };
+            }
+        };
+
+        term.setOption('theme', getTerminalTheme(theme === 'dark'));
+    }, [theme]);
+
     // Write new outputs to terminal
     useEffect(() => {
         const term = termRef.current;
@@ -140,7 +184,7 @@ export default function InteractiveTerminal({
                 <h2 className="text-sm font-semibold text-foreground">Terminal</h2>
             </div>
 
-            <div className="flex-1 bg-black">
+            <div className={`flex-1 ${theme === 'dark' ? 'bg-black' : 'bg-white'}`}>
                 <div ref={containerRef} className="w-full h-full" />
             </div>
         </div>
