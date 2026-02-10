@@ -3,6 +3,7 @@
 import { lazy, Suspense } from 'react';
 import { Button } from "@/components/ui/button"
 import { X, Plus, Play, Pause, Square } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Language } from '@/hooks/useLanguages';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -59,7 +60,9 @@ export default function EditorPanel({
     isRunning, 
     onStop, 
 }: EditorPanelProps) {
+    const { theme } = useTheme();
     const monacoLanguage = getMonacoLanguage(selectedLanguage?.language_name);
+    const monacoTheme = theme === 'dark' ? 'vs-dark' : 'vs';
     return (
         <div className="flex flex-col h-full">
             {/* Top Header - Controls */}
@@ -173,7 +176,7 @@ export default function EditorPanel({
                             height="100%"
                             value={fileContent}
                             language={monacoLanguage}
-                            theme="vs-dark"
+                            theme={monacoTheme}
                             onChange={(value) => onFileContentChange(value ?? '')}
                             options={{
                                 tabSize: 4,
