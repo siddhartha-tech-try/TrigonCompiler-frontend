@@ -36,7 +36,7 @@ export default function Header({
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="flex flex-col gap-0">
           <div className="text-xs sm:text-sm font-semibold text-foreground tracking-tight">
-            Online Compiler
+            TrigonCompiler
           </div>
           <div className="hidden sm:inline-flex">
             <span className="text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded">
