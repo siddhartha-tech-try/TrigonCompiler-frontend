@@ -63,30 +63,32 @@ export default function EditorPanel({
     return (
         <div className="flex flex-col h-full">
             {/* Top Header - Controls */}
-            <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-4">
-                <h2 className="text-sm font-semibold text-foreground">Editor</h2>
+            <div className="px-2 sm:px-4 py-2 sm:py-3 border-b border-border bg-card flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
+                <h2 className="text-xs sm:text-sm font-semibold text-foreground">Editor</h2>
 
                 {/* Execution Mode Toggle */}
-                <div className="flex gap-2">
+                <div className="flex gap-1 sm:gap-2">
                     <Button
                         onClick={() => onExecutionModeChange('interactive')}
                         disabled={isRunning}
                         size="sm"
                         variant={executionMode === 'interactive' ? 'default' : 'ghost'}
-                        className="text-xs"
+                        className="text-xs px-2 sm:px-3"
                     >
                         Interactive
                     </Button>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-1 sm:gap-2">
                     {executionMode === 'interactive' && isRunning && onStop && (
                         <Button
                             onClick={onStop}
                             size="sm"
                             variant="destructive"
+                            className="text-xs px-2 sm:px-3"
                         >
-                            Stop
+                            <span className="hidden sm:inline">Stop</span>
+                            <span className="sm:hidden">✕</span>
                         </Button>
                     )}
 
@@ -94,25 +96,26 @@ export default function EditorPanel({
                         onClick={onRun}
                         disabled={isRunning || !activeFilePath}
                         size="sm"
-                        className="bg-primary hover:bg-primary/90"
+                        className="bg-primary hover:bg-primary/90 text-xs px-2 sm:px-3"
                     >
-                        {isRunning ? "Running..." : "Run"}
+                        {isRunning ? <span className="hidden sm:inline">Running...</span> : <span className="hidden sm:inline">Run</span>}
+                        {!isRunning && <span className="sm:hidden">▶</span>}
                     </Button>
                 </div>
             </div>
 
             {/* File Tabs */}
-            <div className="flex items-center gap-2 px-2 py-2 border-b border-border bg-background overflow-x-auto min-h-[36px]">
+            <div className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-2 border-b border-border bg-background overflow-x-auto min-h-[36px]">
                 <button
                     onClick={onCreateFile}
                     disabled={isRunning}
                     className="flex-shrink-0 p-1 hover:bg-card rounded text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
                     title="New file"
                 >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                 </button>
 
-                <div className="flex gap-1 flex-1">
+                <div className="flex gap-0.5 sm:gap-1 flex-1">
                     {openFiles.length > 0 ? (
                         openFiles.map((filePath) => {
                             const filename = filePath.split('/').pop() || filePath
@@ -123,15 +126,15 @@ export default function EditorPanel({
                                 <div
                                     key={filePath}
                                     onClick={() => onFileSelect(filePath)}
-                                    className={`flex items-center gap-1 px-3 py-1 rounded cursor-pointer transition-colors flex-shrink-0 ${
+                                    className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 rounded cursor-pointer transition-colors flex-shrink-0 text-xs ${
                                         isActive
                                             ? 'bg-primary text-primary-foreground'
                                             : 'bg-card text-foreground hover:bg-card/80'
                                     }`}
                                 >
-                                    <span className="text-xs font-medium truncate max-w-[150px]">{filename}</span>
+                                    <span className="font-medium truncate max-w-[80px] sm:max-w-[150px]">{filename}</span>
                                     {isEntry && (
-                                        <span className="text-xs opacity-70" title="Entry file">•</span>
+                                        <span className="opacity-70 flex-shrink-0" title="Entry file">•</span>
                                     )}
                                     {!isEntry && !isRunning && (
                                         <button
@@ -141,14 +144,14 @@ export default function EditorPanel({
                                             }}
                                             className="hover:opacity-70 flex-shrink-0"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                         </button>
                                     )}
                                 </div>
                             )
                         })
                     ) : (
-                        <div className="text-xs text-muted-foreground px-3 py-1">No files open</div>
+                        <div className="text-xs text-muted-foreground px-3 py-1">No files</div>
                     )}
                 </div>
             </div>
@@ -190,16 +193,16 @@ export default function EditorPanel({
 
             {/* Stdin Input - Bottom Section (only show in batch mode) */}
             {executionMode === 'batch' && (
-                <div className="border-t border-border flex flex-col" style={{ height: '30%' }}>
-                    <div className="px-4 py-2 text-xs font-semibold text-muted-foreground bg-card border-b border-border">
+                <div className="border-t border-border flex flex-col" style={{ height: 'clamp(20%, 30%, 200px)' }}>
+                    <div className="px-2 sm:px-4 py-2 text-xs font-semibold text-muted-foreground bg-card border-b border-border">
                         Input (stdin)
                     </div>
                     <textarea
                         value={stdin}
                         onChange={(e) => onStdinChange(e.target.value)}
                         disabled={isRunning}
-                        className="flex-1 bg-background text-foreground font-mono text-sm resize-none focus:outline-none p-4 border-0"
-                        placeholder="Enter input here (one per line)..."
+                        className="flex-1 bg-background text-foreground font-mono text-xs sm:text-sm resize-none focus:outline-none p-2 sm:p-4 border-0"
+                        placeholder="Enter input (one per line)..."
                         spellCheck="false"
                     />
                 </div>

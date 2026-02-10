@@ -21,6 +21,7 @@ interface PlaygroundProps {
 
 export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [dividerX, setDividerX] = useState(50)
+    const [isMobile, setIsMobile] = useState(false)
     const [stdin, setStdin] = useState("")
     const [entryFile, setEntryFile] = useState<string | null>(null)
     const [executionMode, setExecutionMode] = useState<ExecutionMode>('interactive')
@@ -38,6 +39,22 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
 
     const containerRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(false)
+
+    // Detect mobile and handle responsive behavior
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth < 768; // md breakpoint
+            setIsMobile(mobile);
+            // Auto-adjust divider for mobile
+            if (mobile) {
+                setDividerX(60); // More space for editor on mobile
+            }
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         registerTeardown(() => {
@@ -262,11 +279,13 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                 />
             </div>
 
-            {/* Divider */}
-            <div
-                onMouseDown={handleMouseDown}
-                className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0 active:bg-primary"
-            />
+            {/* Divider - hidden on mobile */}
+            {!isMobile && (
+                <div
+                    onMouseDown={handleMouseDown}
+                    className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0 active:bg-primary"
+                />
+            )}
 
             {/* Right Panel: Output */}
             <div

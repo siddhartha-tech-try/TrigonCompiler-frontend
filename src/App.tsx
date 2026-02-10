@@ -5,6 +5,7 @@ import Header from "@/components/Header"
 import Playground from "@/components/Playground"
 import { useLanguages, type Language } from "@/hooks/useLanguages"
 import { SessionProvider } from "@/contexts/SessionContext"
+import { ThemeProvider } from "@/contexts/ThemeContext"
 
 function AppContent() {
   const { languages, loading, error } = useLanguages()
@@ -38,9 +39,11 @@ function AppContent() {
 
 function App() {
   return (
-    <SessionProvider>
-      <AppContent />
-    </SessionProvider>
+    <ThemeProvider>
+      <SessionProvider>
+        <AppContent />
+      </SessionProvider>
+    </ThemeProvider>
   )
 }
 
