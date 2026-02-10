@@ -51,7 +51,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     teardownCallbacksRef.current.forEach(fn => {
       try {
         fn();
-      } catch { }
+      } catch {}
     });
 
     // 🔵 2. Backend cleanup (best effort)
@@ -60,7 +60,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         `${getBaseUrl()}/sessions/cleanup`,
         JSON.stringify({})
       );
-    } catch { }
+    } catch {}
   };
 
 

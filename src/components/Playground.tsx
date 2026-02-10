@@ -105,6 +105,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                 
                 // Auto-load entry file from code preview
                 if (selectedLanguage.code_preview && selectedLanguage.file_name) {
+                    await createFile(selectedLanguage.file_name, 'file')
                     fileCache.addFileToCache(selectedLanguage.file_name, selectedLanguage.code_preview)
                     fileCache.setActive(selectedLanguage.file_name)
                 }
@@ -125,10 +126,32 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         console.log("[v0] Starting execution...")
 
         // Step 1: Sync all dirty files to backend
-        const dirtyFiles = fileCache.getDirtyFiles()
-        console.log("[v0] Syncing", dirtyFiles.length, "dirty files...")
+        // const dirtyFiles = fileCache.getDirtyFiles()
+        const filesToSync = Object.entries(fileCache.cache)
+            .filter(([_, file]) => file.isDirty || !file.hasBeenSynced)
+            .map(([path, file]) => ({
+                path,
+                content: file.content,
+            }));
+        console.log('[v0] Syncing', filesToSync.length, 'files...');
 
-        for (const file of dirtyFiles) {
+        for (const file of filesToSync) {
+            await createFile(file.path, 'file'); // idempotent
+
+            const ok = await updateFile(file.path, file.content);
+            if (!ok) return;
+
+            fileCache.markFileSynced(file.path);
+        }
+
+
+        const ensureFileExists = async (path: string) => {
+            const created = await createFile(path, 'file');
+            return created;
+        };
+
+        for (const file of filesToSync) {
+            await ensureFileExists(file.path);
             const syncSuccess = await updateFile(file.path, file.content)
             if (syncSuccess) {
                 fileCache.markFileClean(file.path)

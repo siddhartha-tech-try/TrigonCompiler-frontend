@@ -82,8 +82,8 @@ export function useStreamExecution() {
                   eventType === 'stderr'
                     ? 'stderr'
                     : eventType === 'done'
-                      ? 'status'
-                      : 'stdout',
+                    ? 'status'
+                    : 'stdout',
                 content:
                   eventType === 'done'
                     ? `Process exited with code ${data}`

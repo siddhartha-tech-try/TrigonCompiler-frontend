@@ -33,11 +33,10 @@ function TreeNode({
         return (
             <div
                 onClick={() => onFileSelect(path)}
-                className={`flex items-center gap-2 px-2 py-1 cursor-pointer rounded text-sm ${
-                    isActive
+                className={`flex items-center gap-2 px-2 py-1 cursor-pointer rounded text-sm ${isActive
                         ? 'bg-primary/20 text-primary font-semibold'
                         : 'text-foreground hover:bg-muted'
-                }`}
+                    }`}
             >
                 <File className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">{item.name}</span>

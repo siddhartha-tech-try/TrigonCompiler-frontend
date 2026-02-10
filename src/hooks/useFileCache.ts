@@ -6,6 +6,7 @@ export interface FileCache {
     [path: string]: {
         content: string;
         isDirty: boolean;
+        hasBeenSynced: boolean;
     };
 }
 
@@ -92,9 +93,22 @@ export function useFileCache() {
             [path]: {
                 content,
                 isDirty: false,
+                hasBeenSynced: false,
             },
         }));
     }, []);
+
+    const markFileSynced = useCallback((path: string) => {
+        setCache(prev => ({
+            ...prev,
+            [path]: {
+            ...prev[path],
+            isDirty: false,
+            hasBeenSynced: true,
+            },
+        }));
+    }, []);
+
 
     // Remove file from cache
     const removeFileFromCache = useCallback((path: string) => {
@@ -129,5 +143,6 @@ export function useFileCache() {
         addFileToCache,
         removeFileFromCache,
         clearCache,
+        markFileSynced,
     };
 }
