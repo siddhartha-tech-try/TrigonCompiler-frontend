@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
+import { ChevronDown, ChevronRight, File, Folder, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { FileSystemItem } from '@/hooks/useFileSystem';
 
@@ -9,37 +9,65 @@ interface FileTreeProps {
     tree: FileSystemItem[];
     activeFilePath: string | null;
     onFileSelect: (path: string) => void;
+    onFileDelete: (path: string) => void;
     onCreateFile: () => void;
     loading: boolean;
+    entryFile: string | null;
+    isRunning: boolean;
 }
 
 function TreeNode({
     item,
     activeFilePath,
     onFileSelect,
+    onFileDelete,
     path,
+    entryFile,
+    isRunning,
 }: {
     item: FileSystemItem;
     activeFilePath: string | null;
     onFileSelect: (path: string) => void;
+    onFileDelete: (path: string) => void;
     path: string;
+    entryFile: string | null;
+    isRunning: boolean;
 }) {
     const [isExpanded, setIsExpanded] = useState(true);
+    const [showDeleteHover, setShowDeleteHover] = useState(false);
 
     const isFile = item.type === 'file';
     const isActive = isFile && path === activeFilePath;
+    const isEntry = isFile && path === entryFile;
 
     if (isFile) {
         return (
             <div
                 onClick={() => onFileSelect(path)}
-                className={`flex items-center gap-2 px-2 py-1 cursor-pointer rounded text-sm ${isActive
+                onMouseEnter={() => setShowDeleteHover(true)}
+                onMouseLeave={() => setShowDeleteHover(false)}
+                className={`flex items-center gap-2 px-2 py-1 cursor-pointer rounded text-sm group ${isActive
                         ? 'bg-primary/20 text-primary font-semibold'
                         : 'text-foreground hover:bg-muted'
                     }`}
             >
                 <File className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{item.name}</span>
+                <span className="truncate flex-1">{item.name}</span>
+                {isEntry && (
+                    <span className="text-xs opacity-70 flex-shrink-0" title="Entry file">•</span>
+                )}
+                {!isEntry && !isRunning && showDeleteHover && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onFileDelete(path)
+                        }}
+                        className="flex-shrink-0 p-1 hover:text-destructive transition-colors"
+                        title="Delete file"
+                    >
+                        <Trash2 className="w-3 h-3" />
+                    </button>
+                )}
             </div>
         );
     }
@@ -66,7 +94,10 @@ function TreeNode({
                             item={child}
                             activeFilePath={activeFilePath}
                             onFileSelect={onFileSelect}
+                            onFileDelete={onFileDelete}
                             path={path ? `${path}/${child.name}` : child.name}
+                            entryFile={entryFile}
+                            isRunning={isRunning}
                         />
                     ))}
                 </div>
@@ -79,8 +110,11 @@ export default function FileTree({
     tree,
     activeFilePath,
     onFileSelect,
+    onFileDelete,
     onCreateFile,
     loading,
+    entryFile,
+    isRunning,
 }: FileTreeProps) {
     return (
         <div className="flex flex-col h-full bg-card border-r border-border">
@@ -117,7 +151,10 @@ export default function FileTree({
                                 item={item}
                                 activeFilePath={activeFilePath}
                                 onFileSelect={onFileSelect}
+                                onFileDelete={onFileDelete}
                                 path={item.name}
+                                entryFile={entryFile}
+                                isRunning={isRunning}
                             />
                         ))}
                     </div>

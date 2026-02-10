@@ -27,7 +27,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
     const [showFileModal, setShowFileModal] = useState(false)
     const { registerTeardown } = useSession();
 
-    const { getFileTree, readFile, updateFile, createFile } = useFileSystem()
+    const { getFileTree, readFile, updateFile, createFile, deleteFile } = useFileSystem()
     const fileCache = useFileCache()
     const batchExecution = useStreamExecution()
     const interactiveExecution = useInteractiveExecution()
@@ -65,18 +65,42 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
         fileCache.setActive(path)
     };
 
-    const handleFileClose = (path: string) => {
+    const handleFileClose = async (path: string) => {
         // Don't allow closing entry file
-        if (path === entryFile) return
+        if (path === entryFile) {
+            console.log('[v0] Cannot delete entry file')
+            return
+        }
+
+        // Confirm deletion
+        if (!window.confirm(`Delete file: ${path}?`)) {
+            return
+        }
+
+        // Call backend delete API
+        const success = await deleteFile(path, selectedLanguage?.language_name)
         
+        if (!success) {
+            console.error('[v0] Failed to delete file:', path)
+            return
+        }
+
+        // Remove from cache
         fileCache.removeFileFromCache(path)
-        // If this was the active file, select first remaining open file
+
+        // Handle active file selection
         if (fileCache.activeFilePath === path) {
-            const remainingFiles = Object.keys(fileCache.cache).filter(f => f !== path)
-            if (remainingFiles.length > 0) {
-                fileCache.setActive(remainingFiles[0])
+            // Try to switch to entry file first
+            if (entryFile && fileCache.cache[entryFile]) {
+                fileCache.setActive(entryFile)
             } else {
-                fileCache.setActive(null)
+                // Otherwise pick first remaining file
+                const remainingFiles = Object.keys(fileCache.cache)
+                if (remainingFiles.length > 0) {
+                    fileCache.setActive(remainingFiles[0])
+                } else {
+                    fileCache.setActive(null)
+                }
             }
         }
     };
