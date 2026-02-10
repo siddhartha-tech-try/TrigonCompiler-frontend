@@ -159,7 +159,7 @@ export default function InteractiveTerminal({
             }
         };
 
-        term.setOption('theme', getTerminalTheme(theme === 'dark'));
+        term.options.theme = getTerminalTheme(theme === 'dark');
     }, [theme]);
 
     // Write new outputs to terminal
