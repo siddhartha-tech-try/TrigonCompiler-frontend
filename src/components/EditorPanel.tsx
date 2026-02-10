@@ -63,7 +63,7 @@ export default function EditorPanel({
     return (
         <div className="flex flex-col h-full">
             {/* Top Header - Controls */}
-            <div className="px-2 sm:px-4 py-2 sm:py-3 border-b border-border bg-card flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
+            <div className="px-2 sm:px-4 py-2 sm:py-1.5 border-b border-border bg-card flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
                 <h2 className="text-xs sm:text-sm font-semibold text-foreground">Editor</h2>
 
                 {/* Execution Mode Toggle */}
