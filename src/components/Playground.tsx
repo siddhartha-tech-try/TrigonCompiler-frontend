@@ -251,6 +251,7 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                     onFileClose={handleFileClose}
                     onCreateFile={() => setShowFileModal(true)}
                     entryFile={entryFile}
+                    selectedLanguage={selectedLanguage}
                     stdin={stdin}
                     onStdinChange={setStdin}
                     executionMode={executionMode}

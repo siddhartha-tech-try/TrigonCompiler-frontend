@@ -1,7 +1,26 @@
 'use client';
 
+import { lazy, Suspense } from 'react';
 import { Button } from "@/components/ui/button"
 import { X, Plus } from 'lucide-react';
+import type { Language } from '@/hooks/useLanguages';
+
+const MonacoEditor = lazy(() => import('@monaco-editor/react'));
+
+// Map backend language names to Monaco language identifiers
+function getMonacoLanguage(languageName?: string): string {
+    switch (languageName?.toLowerCase()) {
+        case 'java': return 'java';
+        case 'python': return 'python';
+        case 'javascript': return 'javascript';
+        case 'typescript': return 'typescript';
+        case 'c': return 'c';
+        case 'c++': return 'cpp';
+        case 'go': return 'go';
+        case 'php': return 'php';
+        default: return 'plaintext';
+    }
+}
 
 interface EditorPanelProps {
     activeFilePath: string | null
@@ -12,6 +31,7 @@ interface EditorPanelProps {
     onFileClose: (path: string) => void
     onCreateFile: () => void
     entryFile: string | null
+    selectedLanguage?: Language | null
     stdin: string
     onStdinChange: (stdin: string) => void
     executionMode: 'interactive' | 'batch'
@@ -30,6 +50,7 @@ export default function EditorPanel({
     onFileClose,
     onCreateFile,
     entryFile,
+    selectedLanguage,
     stdin, 
     onStdinChange, 
     executionMode, 
@@ -38,6 +59,7 @@ export default function EditorPanel({
     isRunning, 
     onStop, 
 }: EditorPanelProps) {
+    const monacoLanguage = getMonacoLanguage(selectedLanguage?.language_name);
     return (
         <div className="flex flex-col h-full">
             {/* Top Header - Controls */}
@@ -134,14 +156,31 @@ export default function EditorPanel({
             {/* Code Editor */}
             {activeFilePath ? (
                 <div className="flex-1 flex flex-col overflow-hidden">
-                    <textarea
-                        value={fileContent}
-                        onChange={(e) => onFileContentChange(e.target.value)}
-                        disabled={isRunning}
-                        className="flex-1 bg-background text-foreground font-mono text-sm resize-none focus:outline-none p-4 border-0"
-                        placeholder="Write your code here..."
-                        spellCheck="false"
-                    />
+                    <Suspense fallback={
+                        <div className="flex-1 bg-background flex items-center justify-center text-muted-foreground">
+                            <span className="text-sm">Loading editor...</span>
+                        </div>
+                    }>
+                        <MonacoEditor
+                            height="100%"
+                            value={fileContent}
+                            language={monacoLanguage}
+                            theme="vs-dark"
+                            onChange={(value) => onFileContentChange(value ?? '')}
+                            options={{
+                                tabSize: 4,
+                                insertSpaces: true,
+                                autoIndent: 'advanced',
+                                formatOnPaste: true,
+                                formatOnType: true,
+                                minimap: { enabled: false },
+                                scrollBeyondLastLine: false,
+                                wordWrap: 'on',
+                                smoothScrolling: true,
+                                readOnly: isRunning,
+                            }}
+                        />
+                    </Suspense>
                 </div>
             ) : (
                 <div className="flex-1 flex items-center justify-center text-muted-foreground">
