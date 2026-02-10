@@ -16,8 +16,6 @@ interface HeaderProps {
   languages: Language[]
   selectedLanguageId?: number | null
   onLanguageChange?: (languageId: number) => void
-  onRun?: () => void
-  isRunning?: boolean
   isLoading?: boolean
 }
 
@@ -25,8 +23,6 @@ export default function Header({
   languages,
   selectedLanguageId,
   onLanguageChange,
-  onRun,
-  isRunning = false,
   isLoading = false,
 }: HeaderProps) {
   const { theme, toggleTheme } = useTheme()
@@ -70,7 +66,7 @@ export default function Header({
         </Select>
       </div>
 
-      {/* Right: Theme toggle and Run button */}
+      {/* Right: Theme toggle */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <Button
           onClick={toggleTheme}
@@ -83,27 +79,6 @@ export default function Header({
             <Sun className="w-4 h-4" />
           ) : (
             <Moon className="w-4 h-4" />
-          )}
-        </Button>
-        
-        <Button
-          onClick={onRun}
-          disabled={isRunning}
-          size="sm"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs sm:text-sm px-2 sm:px-4"
-        >
-          {isRunning ? (
-            <>
-              <span className="inline-block animate-spin mr-1 sm:mr-2 text-sm">⏳</span>
-              <span className="hidden sm:inline">Running</span>
-              <span className="sm:hidden">...</span>
-            </>
-          ) : (
-            <>
-              <span className="mr-1 sm:mr-2">▶</span>
-              <span className="hidden sm:inline">Run Code</span>
-              <span className="sm:hidden">Run</span>
-            </>
           )}
         </Button>
       </div>

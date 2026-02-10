@@ -2,7 +2,7 @@
 
 import { lazy, Suspense } from 'react';
 import { Button } from "@/components/ui/button"
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Play, Pause, Square } from 'lucide-react';
 import type { Language } from '@/hooks/useLanguages';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -84,11 +84,11 @@ export default function EditorPanel({
                         <Button
                             onClick={onStop}
                             size="sm"
-                            variant="destructive"
-                            className="text-xs px-2 sm:px-3"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive"
+                            title="Stop execution"
                         >
-                            <span className="hidden sm:inline">Stop</span>
-                            <span className="sm:hidden">✕</span>
+                            <Square className="w-4 h-4" />
                         </Button>
                     )}
 
@@ -96,10 +96,15 @@ export default function EditorPanel({
                         onClick={onRun}
                         disabled={isRunning || !activeFilePath}
                         size="sm"
-                        className="bg-primary hover:bg-primary/90 text-xs px-2 sm:px-3"
+                        className="h-8 w-8 p-0 hover:bg-primary/20"
+                        variant="ghost"
+                        title={isRunning ? "Running..." : "Run code"}
                     >
-                        {isRunning ? <span className="hidden sm:inline">Running...</span> : <span className="hidden sm:inline">Run</span>}
-                        {!isRunning && <span className="sm:hidden">▶</span>}
+                        {isRunning ? (
+                            <Pause className="w-4 h-4" />
+                        ) : (
+                            <Play className="w-4 h-4" />
+                        )}
                     </Button>
                 </div>
             </div>

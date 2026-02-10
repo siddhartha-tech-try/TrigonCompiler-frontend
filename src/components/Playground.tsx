@@ -225,10 +225,19 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             if (!isDraggingRef.current || !containerRef.current) return
 
             const rect = containerRef.current.getBoundingClientRect()
-            const newX = ((e.clientX - rect.left) / rect.width) * 100
-
-            if (newX >= 30 && newX <= 70) {
-                setDividerX(newX)
+            
+            if (isMobile) {
+                // Vertical dragging for mobile
+                const newY = ((e.clientY - rect.top) / rect.height) * 100
+                if (newY >= 30 && newY <= 70) {
+                    setDividerX(newY)
+                }
+            } else {
+                // Horizontal dragging for desktop
+                const newX = ((e.clientX - rect.left) / rect.width) * 100
+                if (newX >= 30 && newX <= 70) {
+                    setDividerX(newX)
+                }
             }
         }
 
@@ -236,28 +245,26 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
             isDraggingRef.current = false
         }
 
-        if (isDraggingRef.current) {
-            document.addEventListener("mousemove", handleMouseMove)
-            document.addEventListener("mouseup", handleMouseUp)
+        document.addEventListener("mousemove", handleMouseMove)
+        document.addEventListener("mouseup", handleMouseUp)
 
-            return () => {
-                document.removeEventListener("mousemove", handleMouseMove)
-                document.removeEventListener("mouseup", handleMouseUp)
-            }
+        return () => {
+            document.removeEventListener("mousemove", handleMouseMove)
+            document.removeEventListener("mouseup", handleMouseUp)
         }
-    }, [])
+    }, [isMobile])
 
     const openFiles = Object.keys(fileCache.cache)
 
     return (
         <div
             ref={containerRef}
-            className="flex h-full overflow-hidden bg-background"
+            className={`flex h-full overflow-hidden bg-background ${isMobile ? 'flex-col' : 'flex-row'}`}
         >
             {/* Left Panel: Editor */}
             <div
-                style={{ width: `${dividerX}%` }}
-                className="flex flex-col border-r border-border"
+                style={isMobile ? { height: `${dividerX}%` } : { width: `${dividerX}%` }}
+                className={`flex flex-col ${isMobile ? 'border-b' : 'border-r'} border-border`}
             >
                 <EditorPanel
                     activeFilePath={fileCache.activeFilePath}
@@ -279,18 +286,18 @@ export default function Playground({ selectedLanguage }: PlaygroundProps) {
                 />
             </div>
 
-            {/* Divider - hidden on mobile */}
-            {!isMobile && (
-                <div
-                    onMouseDown={handleMouseDown}
-                    className="w-1 bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 flex-shrink-0 active:bg-primary"
-                />
-            )}
+            {/* Divider */}
+            <div
+                onMouseDown={handleMouseDown}
+                className={`bg-border hover:bg-primary transition-colors duration-150 flex-shrink-0 active:bg-primary ${
+                    isMobile ? 'h-1 cursor-row-resize' : 'w-1 cursor-col-resize'
+                }`}
+            />
 
             {/* Right Panel: Output */}
             <div
-                style={{ width: `${100 - dividerX}%` }}
-                className="flex flex-col bg-background">
+                style={isMobile ? { height: `${100 - dividerX}%` } : { width: `${100 - dividerX}%` }}
+                className="flex flex-col bg-background overflow-hidden">
                 {executionMode === 'interactive' ? (
                     <InteractiveTerminal
                         outputs={outputs}
